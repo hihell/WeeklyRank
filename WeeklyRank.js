@@ -209,7 +209,7 @@ exports.Rank = function(appname,rankCallback)
         //      Rank
         var Rank = 0.25 * A + 0.35 * B + 0.4 * C;
         console.log("the Rank is:" + Rank);
-        return Rank;
+        rankCallback(Rank);
     }
     // Store Data in Baidu callback function
     // Collect all store operation to do parallel
@@ -220,7 +220,7 @@ exports.Rank = function(appname,rankCallback)
     var promiseCrawling = [];
     promiseCrawling.push(CrawlSearchingCount(appname, "baidu", "1"));
     promiseCrawling.push(CrawlSearchingCount(appname, "baidu", "1"));
-    AV.Promise.when(promiseCrawling).then(calculateCount).then(rankCallback);
+    AV.Promise.when(promiseCrawling).then(calculateCount);
 }
 
 //CrawlSearchingCount("暴走漫画", "baidu", "1");
