@@ -146,7 +146,7 @@ exports.Rank = function(appname,rankCallback)
                 success: function(object) {
                     // Successfully retrieved the object.
                     appObj = object;
-                    console.log(object.id + ' - ' + object.get('name'));
+                    console.log("Product's objID : " + object.id + ' - ' + object.get('name'));
                 },
                 error: function(error) {
                     alert("Error: " + error.code + " " + error.message);
@@ -166,11 +166,11 @@ exports.Rank = function(appname,rankCallback)
                 //console.log("Successfully retrieved " + results.length + " name.");
                 if(type == "voteCount" && object.get("voteCount") != undefined) {
                     max_like = object.get("voteCount");
-                    console.log("max like : " + max_like);
+                    console.log("Product's max voteCount : " + max_like);
                 }
                 else if(type == "commentCount" && object.get("commentCount") != undefined) {
                     max_comment = object.get("commentCount");
-                    console.log("max comment : " + max_comment);
+                    console.log("Product's max comment : " + max_comment);
                 }
             },
             error: function(error) {
@@ -193,7 +193,7 @@ exports.Rank = function(appname,rankCallback)
                     like    = object.get("voteCount");
                 if(object.get("commentCount") != undefined)
                     comment = object.get("commentCount");
-                console.log("like : " + like + ' - ' + "comment : " + comment);
+                console.log("Product's info | like : " + like + ' - ' + "comment : " + comment);
             },
             error: function(error) {
                 console.log("Error: " + error.code + " " + error.message);
@@ -211,14 +211,15 @@ exports.Rank = function(appname,rankCallback)
         promises.push(GetMax("commentCount"));
         AV.Promise.when(promises).then(GetProductObj(appname)).then(GetLikeAndComment()).then(function(){
             // Calculating!!!
+            var Rank = 0;
             //      Popularity
-            var A = download/(max_download*2) + (search*3)/(max_search*10) + comment/(max_comment*10) + like/(max_like*10);
-            //      Score
-            var B = 4.5;
-            //      Rising degree
-            var C = add_download/(download*2) + (add_search*3)/(search*10) + add_comment/(comment*10) + add_like/(like*10);
-            //      Rank
-            var Rank = 0.25 * A + 0.35 * B + 0.4 * C;
+//            var A = download/(max_download*2) + (search*3)/(max_search*10) + comment/(max_comment*10) + like/(max_like*10);
+//            //      Score
+//            var B = 4.5;
+//            //      Rising degree
+//            var C = add_download/(download*2) + (add_search*3)/(search*10) + add_comment/(comment*10) + add_like/(like*10);
+//            //      Rank
+//            Rank = 0.25 * A + 0.35 * B + 0.4 * C;
             console.log("Rank = " + Rank);
             rankCallback(Rank);
         });
@@ -235,37 +236,5 @@ exports.Rank = function(appname,rankCallback)
     AV.Promise.when(promiseCrawling).then(calculateCount);
 }
 
-//CrawlSearchingCount("暴走漫画", "baidu", "1");
-//var type = "commentCount";
-//var ProductState = AV.Object.extend("ProductState");
-//var query = new AV.Query(ProductState);
-//
-//query.ascending(type);
-//return query.first({
-//    success: function(object) {
-//        //console.log("Successfully retrieved " + object.length + " name.");
-//        if(type == "voteCount") {
-//            var max_like = object.get("voteCount");
-//            console.log("max like : " + max_like);
-//        }
-//        else if(type == "commentCount") {
-//            var max_comment = object.get("commentCount");
-//            console.log("max comment : " + max_comment);
-//            if(max_comment == undefined)
-//            {
-//                console.log("undefine!");
-//            }
-//        }
-////        console.log("Successfully retrieved " + results.length + " like.");
-////        // Do something with the returned AV.Object values
-////        for (var i = 0; i < results.length; i++) {
-////            var object = results[i];
-////            console.log(object.id + ' - ' + object.get('commentCount'));
-////        }
-//    },
-//    error: function(error) {
-//        console.log("Error: " + error.code + " " + error.message);
-//    }
-//});
 
 
