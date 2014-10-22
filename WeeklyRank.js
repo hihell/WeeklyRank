@@ -3,15 +3,13 @@
  * @Author:      Woodie
  * @Version:     0.1.1
  * @CreateTime:  Wed, Oct 22, 2014
- * @Description: We can call this function to get the specified product's news from Baidu or Google.
- *               This function need two arg: "productName" & "type" (news about app or website).
- *               It will get the result of news which crawled from internet, and the result will be
- *               stored in project "techhack" on AVOSCloud Server.
- *               Finally, the function will have a return value called "statusCode", witch inferred whether
- *               the Crawling is successful or not, and "statusMessage", which descripte the message of
- *               Crawling result.
- * @Hint:        We recommend that it is better to use lib-"request" to send http request,
+ * @Description: We can call this function to get the apps' rank from Baidu and Google.
+ *               This function need two arg: "appname" & "rankCallback".
+ *               Finally, It will return the Rank Value, and store it in avos server.
+ * @Hint:        1.We recommend that it is better to use lib-"request" to send http request,
  *               Here we still use lib-"http", we will promote it at this point later
+ *               2.When we use "promise", it is important that we need add "function(){...}" into "then()",
+ *               rather than use our own function name, eg : t.save().then(Myfunction);
  *******************************************************************************************************/
 
 var AV   = require('avoscloud-sdk').AV;
@@ -104,15 +102,17 @@ function CrawlSearchingCount(appname, engine, time)
                     //console.log("slice:"+slice);
                     start_pos -= 4; end_pos -=4; muti *= 1000;
                 }
-                console.log("count is "+nums);
+                //console.log("count is "+nums);
                 // Store the result in global variable
                 if(engine == "baidu")
                 {
                     BaiduCount = nums;
+                    console.log("BaiduCount : " + BaiduCount);
                 }
                 else if(engine == "google")
                 {
                     GoogleCount = nums;
+                    console.log("GoogleCount : " + GoogleCount);
                 }
             });
     });
@@ -120,19 +120,45 @@ function CrawlSearchingCount(appname, engine, time)
 
 
 // The main funciton...
-exports.Rank = function(appname,rankCallback)
+exports.Rank = function(appname, time, rankCallback)
 {
     var appObj;
+    var Rank = 0;
     // Init para by default value
-    var max_search   = 1000000000000, search  = BaiduCount*0.7 + BaiduCount*0.3, add_search = 1000;
-    var max_like     = 10000,         like    = 0,                               add_like = 10;
-    var max_comment  = 10000,         comment = 0,                               add_comment = 20;
-    var max_download = 10000000,      download = 10000000,                       add_download = 10000;
+    var max_search   = 1000000000000, search  = 10000,   add_search = 1000;
+    var max_like     = 10000,         like    = 100,     add_like = 10;
+    var max_comment  = 10000,         comment = 100,     add_comment = 20;
+    var max_download = 10000000,      download = 100000, add_download = 10000;
 
     // Store the count in avos server
-    function avosStoreCount()
+    function avosStoreCount(time, Rank)
     {
-
+        var list = "";
+        if(time == "7")
+        {
+            list = "WeeklyRank";
+        }
+        else if(time == "1")
+        {
+            list = "DailyRank";
+        }
+        var LIST = AV.Object.extend(list);
+        var List = new LIST();
+        List.set("name", appname);
+        List.set("product", appObj);
+        List.set("rankValue", Rank);
+        List.set("searchCount", search);
+        return List.save(null, {
+            success: function(List) {
+                // Execute any logic that should take place after the object is saved.
+                console.log('New object created with objectId: ' + List.id);
+            },
+            error: function(gameScore, error) {
+                // Execute any logic that should take place if the save fails.
+                // error is a AV.Error with an error code and description.
+                console.log('Failed to create new object, with error code: ' + error.description);
+            }
+        });
     }
     // Get app id in the list "product"
     function GetProductObj(appname)
@@ -143,14 +169,14 @@ exports.Rank = function(appname,rankCallback)
 
         query.equalTo("name", appname);
         return query.first({
-                success: function(object) {
-                    // Successfully retrieved the object.
-                    appObj = object;
-                    console.log("Product's objID : " + object.id + ' - ' + object.get('name'));
-                },
-                error: function(error) {
-                    alert("Error: " + error.code + " " + error.message);
-                }
+            success: function(object) {
+                // Successfully retrieved the object.
+                appObj = object;
+                console.log("Product's objID : " + object.id + ' - ' + object.get('name'));
+            },
+            error: function(error) {
+                console.log("Error: " + error.code + " " + error.message);
+            }
         });
     }
     // Get all apps' max comment count & max like count
@@ -209,19 +235,31 @@ exports.Rank = function(appname,rankCallback)
         var promises = [];
         promises.push(GetMax("voteCount"));
         promises.push(GetMax("commentCount"));
-        AV.Promise.when(promises).then(GetProductObj(appname)).then(GetLikeAndComment()).then(function(){
+        AV.Promise.when(promises).then(function(){
+                GetProductObj(appname);
+        }).then(function(){
+                GetLikeAndComment();
+        }).then(function(){
             // Calculating!!!
-            var Rank = 0;
+            search  = BaiduCount*0.7 + BaiduCount*0.3;
+            console.log("Formula Para | download : " + download + " \tmax_download : " + max_download + " \tadd_download : " + add_download + "\n" +
+                        "             | search : " + search + " \tmax_search : " + max_search + " \tadd_search : " + add_search  + "\n" +
+                        "             | comment : "+ comment + " \tmax_comment : " + max_comment + " \tadd_comment : " + add_comment  + "\n" +
+                        "             | like : " + like + " \tmax_like : " + max_like + " \tadd_like : " + add_like);
             //      Popularity
-//            var A = download/(max_download*2) + (search*3)/(max_search*10) + comment/(max_comment*10) + like/(max_like*10);
-//            //      Score
-//            var B = 4.5;
-//            //      Rising degree
-//            var C = add_download/(download*2) + (add_search*3)/(search*10) + add_comment/(comment*10) + add_like/(like*10);
-//            //      Rank
-//            Rank = 0.25 * A + 0.35 * B + 0.4 * C;
+            var A = download/(max_download*2) + (search*3)/(max_search*10) + comment/(max_comment*10) + like/(max_like*10);
+            console.log("Rank_A = " + A);
+            //      Score
+            var B = 4.5;
+            console.log("Rank_B = " + B);
+            //      Rising degree
+            var C = add_download/(download*2) + (add_search*3)/(search*10) + add_comment/(comment*10) + add_like/(like*10);
+            console.log("Rank_C = " + C);
+            //      Rank
+            Rank = 0.25 * A + 0.35 * B + 0.4 * C;
             console.log("Rank = " + Rank);
-            rankCallback(Rank);
+            avosStoreCount(time, Rank).then(function(){rankCallback(Rank);})
+            //rankCallback(Rank);
         });
     }
     // Store Data in Baidu callback function
@@ -231,9 +269,9 @@ exports.Rank = function(appname,rankCallback)
     // Crawling Data from Internet
     // And call the httpCallback to calculate Rank and store the result in AVOS Server
     var promiseCrawling = [];
-    promiseCrawling.push(CrawlSearchingCount(appname, "baidu", "1"));
-    promiseCrawling.push(CrawlSearchingCount(appname, "baidu", "1"));
-    AV.Promise.when(promiseCrawling).then(calculateCount);
+    promiseCrawling.push(CrawlSearchingCount(appname, "baidu", time));
+    promiseCrawling.push(CrawlSearchingCount(appname, "baidu", time));
+    AV.Promise.when(promiseCrawling).then(function(){calculateCount()});
 }
 
 
