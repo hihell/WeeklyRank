@@ -72,6 +72,7 @@ function CrawlSearchingCount(appname, engine, time)
                 {
                     pure_text = $(".nums").text();
                     nums_text = pure_text.slice(11,-1);
+                    //console.log(nums_text+"\n");
                 }
                 else if(engine == "google")
                 {
@@ -122,12 +123,13 @@ function CrawlSearchingCount(appname, engine, time)
 exports.Rank = function(appname,rankCallback)
 {
     var appObj;
-    // Init para
+    // Init para by default value
     var max_search   = 1000000000000, search  = BaiduCount*0.7 + BaiduCount*0.3, add_search = 1000;
-    var max_like     = "",            like    = "",                              add_like = 10;
-    var max_comment  = "",            comment = "",                              add_comment = 20;
+    var max_like     = 10000,         like    = 0,                               add_like = 10;
+    var max_comment  = 10000,         comment = 0,                               add_comment = 20;
     var max_download = 10000000,      download = 10000000,                       add_download = 10000;
 
+    // Store the count in avos server
     function avosStoreCount()
     {
 
@@ -135,6 +137,7 @@ exports.Rank = function(appname,rankCallback)
     // Get app id in the list "product"
     function GetProductObj(appname)
     {
+        console.log("Getting Product's objID ..");
         var Product = AV.Object.extend("Product");
         var query = new AV.Query(Product);
 
@@ -153,18 +156,22 @@ exports.Rank = function(appname,rankCallback)
     // Get all apps' max comment count & max like count
     function GetMax(type)
     {
+        console.log("Getting Product's max " + type + " ..");
         var ProductState = AV.Object.extend("ProductState");
         var query = new AV.Query(ProductState);
 
-        query.ascending(type);
+        query.descending(type);
         return query.first({
-            success: function(results) {
-                console.log("Successfully retrieved " + results.length + " name.");
-                if(type == "voteCount")
-                    max_like    = results.voteCount;
-                else if(type == "commentCount")
-                    max_comment = results.commentCount
-                console.log("like:" + like + ' - ' + "comment" + comment);
+            success: function(object) {
+                //console.log("Successfully retrieved " + results.length + " name.");
+                if(type == "voteCount" && object.get("voteCount") != undefined) {
+                    max_like = object.get("voteCount");
+                    console.log("max like : " + max_like);
+                }
+                else if(type == "commentCount" && object.get("commentCount") != undefined) {
+                    max_comment = object.get("commentCount");
+                    console.log("max comment : " + max_comment);
+                }
             },
             error: function(error) {
                 console.log("Error: " + error.code + " " + error.message);
@@ -174,16 +181,19 @@ exports.Rank = function(appname,rankCallback)
     // Get app's comment count & like count
     function GetLikeAndComment()
     {
+        console.log("Getting Product's like and comment ..");
         var ProductState = AV.Object.extend("ProductState");
         var query = new AV.Query(ProductState);
 
         query.equalTo("product", appObj);
         return query.first({
-            success: function(results) {
-                console.log("Successfully retrieved " + results.length + " name.");
-                like    = results.voteCount;
-                comment = results.commentCount;
-                console.log("like:" + like + ' - ' + "comment" + comment);
+            success: function(object) {
+                //console.log("Successfully retrieved " + results.length + " name.");
+                if(object.get("voteCount") != undefined)
+                    like    = object.get("voteCount");
+                if(object.get("commentCount") != undefined)
+                    comment = object.get("commentCount");
+                console.log("like : " + like + ' - ' + "comment : " + comment);
             },
             error: function(error) {
                 console.log("Error: " + error.code + " " + error.message);
@@ -193,23 +203,25 @@ exports.Rank = function(appname,rankCallback)
     // Calculating the count
     function calculateCount()
     {
+        console.log("Calculating Rank, please wait ..");
         // Get some para from avosServer
         // Create a promise array to store which promises need be done parallel..
         var promises = [];
         promises.push(GetMax("voteCount"));
         promises.push(GetMax("commentCount"));
-        AV.Promise.when(promises).then(GetProductObj(appname)).then(GetLikeAndComment());
-        // Calculating!!!
-        //      Popularity
-        var A = download/(max_download*2) + (search*3)/(max_search*10) + comment/(max_comment*10) + like/(max_like*10);
-        //      Score
-        var B = 4.5;
-        //      Rising degree
-        var C = add_download/(download*2) + (add_search*3)/(search*10) + add_comment/(comment*10) + add_like/(like*10);
-        //      Rank
-        var Rank = 0.25 * A + 0.35 * B + 0.4 * C;
-        console.log("the Rank is:" + Rank);
-        rankCallback(Rank);
+        AV.Promise.when(promises).then(GetProductObj(appname)).then(GetLikeAndComment()).then(function(){
+            // Calculating!!!
+            //      Popularity
+            var A = download/(max_download*2) + (search*3)/(max_search*10) + comment/(max_comment*10) + like/(max_like*10);
+            //      Score
+            var B = 4.5;
+            //      Rising degree
+            var C = add_download/(download*2) + (add_search*3)/(search*10) + add_comment/(comment*10) + add_like/(like*10);
+            //      Rank
+            var Rank = 0.25 * A + 0.35 * B + 0.4 * C;
+            console.log("Rank = " + Rank);
+            rankCallback(Rank);
+        });
     }
     // Store Data in Baidu callback function
     // Collect all store operation to do parallel
@@ -224,6 +236,36 @@ exports.Rank = function(appname,rankCallback)
 }
 
 //CrawlSearchingCount("暴走漫画", "baidu", "1");
-
+//var type = "commentCount";
+//var ProductState = AV.Object.extend("ProductState");
+//var query = new AV.Query(ProductState);
+//
+//query.ascending(type);
+//return query.first({
+//    success: function(object) {
+//        //console.log("Successfully retrieved " + object.length + " name.");
+//        if(type == "voteCount") {
+//            var max_like = object.get("voteCount");
+//            console.log("max like : " + max_like);
+//        }
+//        else if(type == "commentCount") {
+//            var max_comment = object.get("commentCount");
+//            console.log("max comment : " + max_comment);
+//            if(max_comment == undefined)
+//            {
+//                console.log("undefine!");
+//            }
+//        }
+////        console.log("Successfully retrieved " + results.length + " like.");
+////        // Do something with the returned AV.Object values
+////        for (var i = 0; i < results.length; i++) {
+////            var object = results[i];
+////            console.log(object.id + ' - ' + object.get('commentCount'));
+////        }
+//    },
+//    error: function(error) {
+//        console.log("Error: " + error.code + " " + error.message);
+//    }
+//});
 
 
